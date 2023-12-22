@@ -1,12 +1,10 @@
-// const http = require('http');
-// // const router = require('./bootstrap/Router');
+// index.js
 
-// const server = http.createServer((req, res) => {
-//   router(req, res); // Gérer les requêtes avec notre propre routeur
-// });
+const http = require('http');
+const app = require('./Routes/index');
 
-// const PORT = 3000;
+const PORT = process.env.PORT || 8889;
 
-// server.listen(PORT, () => {
-//   console.log(`Serveur démarré sur le port ${PORT}`);
-// });
+const server = http.createServer(app);
+
+server.listen(PORT, () => console.log(`Serveur sur le port : ${PORT}`));
