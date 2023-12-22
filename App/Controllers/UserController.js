@@ -1,20 +1,18 @@
 const {client} = require('../../Bootstrap/Db')
 const {getPostData} = require('../../utils')
+const { getUsersQuery, getUserByIdQuery, createUserQuery, updateUserQuery, deleteUserQuery } = require('../Models/User')
 // GET all user
 // Route : GET /api/users
 
 async function getUsers(req, res) {
     try {
-      const query = 'SELECT * FROM users'; // Remplacez 'users' par le nom de votre table
-  
-      const result = await client.query(query);
-  
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result.rows));
-    } catch (error) {
-      console.error('Erreur lors de la récupération des utilisateurs', error);
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end('Erreur serveur');
+      const users = await getUsersQuery();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(users));
+  } catch (error) {
+    console.error('Erreur lors de la récupération des utilisateurs', error);
+    res.writeHead(500, { 'Content-Type': 'text/plain' });
+    res.end('Erreur serveur');
     }
   }
 
@@ -23,15 +21,14 @@ async function getUsers(req, res) {
 
 async function getUser(req, res, id) {
   try {
-    const query = 'SELECT * FROM users WHERE id = $1'; // Utilisation de paramètres pour éviter les injections SQL
-    const result = await client.query(query, [id]);
+    const users = await getUserByIdQuery(id);
 
-    if (result.rows.length === 0) {
+    if (users.length === 0) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ message: 'Utilisateur introuvable' }));
     } else {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result.rows[0])); // Envoi du premier utilisateur trouvé (s'il y en a)
+      res.end(JSON.stringify(users[0])); // Envoi du premier utilisateur trouvé (s'il y en a)
     }
   } catch (error) {
     console.error('Erreur lors de la récupération de l\'utilisateur', error);
@@ -47,13 +44,19 @@ async function createUser(req, res) {
     console.log('Corps de la requête POST :', body); // Afficher le corps de la requête pour le vérifier
     const { id, name, email, created_at, updated_at, password } = JSON.parse(body);
 
-    const query = 'INSERT INTO users (id, name, email, created_at, updated_at, password) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *';
-    const values = [id, name, email, created_at, updated_at, password];
+    const newUser = {
+      id,
+      name,
+      email,
+      created_at,
+      updated_at,
+      password
+    };
 
-    const result = await client.query(query, values);
+    const createdUser = await createUserQuery(newUser);
 
     res.writeHead(201, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(result.rows[0])); // Envoi du nouvel utilisateur créé
+    res.end(JSON.stringify(createdUser)); // Envoi du nouvel utilisateur créé
   } catch (error) {
     console.error('Erreur lors de la création de l\'utilisateur', error);
     res.writeHead(500, { 'Content-Type': 'text/plain' });
@@ -66,34 +69,19 @@ async function createUser(req, res) {
 
 async function updateUser(req, res, id) {
   try {
-    // Récupérer les données du corps de la requête
     const body = await getPostData(req);
     const { name, email, password } = JSON.parse(body);
 
-    // Vérifier si l'utilisateur existe
-    const queryFindUser = 'SELECT * FROM users WHERE id = $1';
-    const resultFindUser = await client.query(queryFindUser, [id]);
+    const userData = {
+      name,
+      email,
+      password
+    };
 
-    if (resultFindUser.rows.length === 0) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ message: 'Utilisateur introuvable' }));
-    } else {
-      // Construire la requête de mise à jour
-      const queryUpdateUser = `
-        UPDATE users 
-        SET 
-          name = COALESCE($1, name),
-          email = COALESCE($2, email),
-          password = COALESCE($3, password)
-        WHERE id = $4
-        RETURNING *`;
+    const updatedUser = await updateUserQuery(id, userData);
 
-      const values = [name, email, password, id];
-      const resultUpdateUser = await client.query(queryUpdateUser, values);
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(resultUpdateUser.rows[0])); // Renvoie l'utilisateur mis à jour
-    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(updatedUser)); // Renvoie l'utilisateur mis à jour
   } catch (error) {
     console.error('Erreur lors de la mise à jour de l\'utilisateur', error);
     res.writeHead(500, { 'Content-Type': 'text/plain' });
@@ -106,21 +94,10 @@ async function updateUser(req, res, id) {
 
 async function deleteUser(req, res, id) {
   try {
-    // Vérifier si l'utilisateur existe
-    const queryFindUser = 'SELECT * FROM users WHERE id = $1';
-    const resultFindUser = await client.query(queryFindUser, [id]);
+    const result = await deleteUserQuery(id);
 
-    if (resultFindUser.rows.length === 0) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ message: 'Utilisateur introuvable' }));
-    } else {
-      // Supprimer l'utilisateur
-      const queryDeleteUser = 'DELETE FROM users WHERE id = $1';
-      await client.query(queryDeleteUser, [id]);
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ message: `Utilisateur ${id} supprimé` }));
-    }
+    res.writeHead(204, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result)); // Renvoie un message indiquant la suppression de l'utilisateur
   } catch (error) {
     console.error('Erreur lors de la suppression de l\'utilisateur', error);
     res.writeHead(500, { 'Content-Type': 'text/plain' });
